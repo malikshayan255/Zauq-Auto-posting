@@ -1,0 +1,51 @@
+name: Post to Facebook & Instagram
+
+on:
+  schedule:
+    # 09:00 UTC daily = 14:00 Asia/Tashkent. Edit to change the posting time.
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zauq-social-posting
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Post next queued item
+        env:
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+          GIT_BRANCH: ${{ github.ref_name }}
+        run: python scripts/post_to_social.py
+
+      - name: Commit updated queue (if changed)
+        run: |
+          git config user.name "zauq-auto-posting-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if ! git diff --quiet -- content/queue.json; then
+            git add content/queue.json
+            git commit -m "chore: mark queued post as published [skip ci]"
+            git push
+          else
+            echo "No queue changes to commit."
+          fi
