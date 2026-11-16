@@ -150,7 +150,10 @@ def main() -> int:
         fb_post_id = post_to_facebook(page_id, page_token, image_url, caption_fb)
         ig_media_id = post_to_instagram(ig_user_id, page_token, image_url, caption_ig)
     except requests.HTTPError as e:
-        log(f"ERROR posting to Graph API: {e.response.text if e.response else e}")
+        # requests.Response.__bool__ returns False for 4xx/5xx, so "if e.response"
+        # is wrong here — check "is not None" instead or the real error body gets
+        # swallowed in favor of the generic HTTPError string.
+        log(f"ERROR posting to Graph API: {e.response.text if e.response is not None else e}")
         log(
             f"Partial result — facebook_post_id={fb_post_id}, instagram_media_id={ig_media_id}. "
             "Item NOT marked posted; fix the issue and re-run (may double-post to whichever "
